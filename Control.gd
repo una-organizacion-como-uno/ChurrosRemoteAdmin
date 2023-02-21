@@ -2,7 +2,7 @@ extends Control
 
 const port : int = 0x4348  # "CH"
 
-var udp := PacketPeerUDP.new()
+var peer := StreamPeerTCP.new()
 var connected = false
 
 # IMPORT NetAPI
@@ -13,13 +13,18 @@ const COMMAND_INFO = NetAPI.COMMAND_INFO
 
 func _ready():
 	print("hola")
-	udp.connect_to_host("127.0.0.1", port)
-	udp.put_var([Commands.GLOBAL_PARAM_GET, "size"])
-	udp.put_var([Commands.GLOBAL_PARAM_GET, "speed"])
+	peer.connect_to_host("127.0.0.1", port)
+	while (peer.get_status() != peer.STATUS_CONNECTED):
+		yield(get_tree(), "idle_frame")
+	
+	peer.put_var([Commands.GLOBAL_PARAM_GET, "size"])
+	peer.put_var([Commands.GLOBAL_PARAM_GET, "speed"])
 
 func _process(delta):
-	if udp.get_available_packet_count() > 0:
-		var packet = udp.get_var()
+	if not peer.is_connected_to_host():
+		return
+	if peer.get_available_bytes() > 0:
+		var packet = peer.get_var()
 		if typeof(packet) != TYPE_ARRAY:
 			print("Invalid response type")
 		var response : NetAPI.Response = NetAPI.Response.from_array(packet)
@@ -41,15 +46,15 @@ func _process(delta):
 
 
 func _exit_tree():
-	udp.close()
+	peer.disconnect_from_host()
 
 
 
 func _on_SpeedButton_pressed():
-	udp.put_var([Commands.GLOBAL_PARAM_SET, "speed", float($VBoxContainer/HBoxContainer2/SpeedValue.text)])
+	peer.put_var([Commands.GLOBAL_PARAM_SET, "speed", float($VBoxContainer/HBoxContainer2/SpeedValue.text)])
 
 
 
 func _on_SizeButton_pressed():
-	udp.put_var([Commands.GLOBAL_PARAM_SET, "size", float($VBoxContainer/HBoxContainer/SizeValue.text)])
+	peer.put_var([Commands.GLOBAL_PARAM_SET, "size", float($VBoxContainer/HBoxContainer/SizeValue.text)])
 
